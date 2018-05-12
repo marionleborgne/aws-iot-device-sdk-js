@@ -1,4 +1,4 @@
-/*
+/* 
  * Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
@@ -25,6 +25,7 @@ var AWSConfiguration = require('./aws-configuration.js');
 
 console.log('Loaded AWS SDK for JavaScript and AWS IoT SDK for Node.js');
 
+const idToken = AWSConfiguration.idToken;
 //
 // Remember our current subscription topic here.
 //
@@ -45,11 +46,16 @@ var clientId = 'mqtt-explorer-' + (Math.floor((Math.random() * 100000) + 1));
 //
 AWS.config.region = AWSConfiguration.region;
 
-AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-   IdentityPoolId: AWSConfiguration.poolId
-});
+const credentialsParams = {
+   IdentityPoolId: AWSConfiguration.poolId,
+   Logins: {'babel-audio.auth0.com': idToken}
+};
 
-//
+AWS.config.credentials = new AWS.CognitoIdentityCredentials(credentialsParams);
+AWS.config.credentials.clearCachedId();
+AWS.config.credentials = new AWS.CognitoIdentityCredentials(credentialsParams);
+
+
 // Create the AWS IoT device object.  Note that the credentials must be 
 // initialized with empty strings; when we successfully authenticate to
 // the Cognito Identity Pool, the credentials will be dynamically updated.
@@ -95,26 +101,53 @@ const mqttClient = AWSIoTData.device({
 // identities.
 //
 var cognitoIdentity = new AWS.CognitoIdentity();
-AWS.config.credentials.get(function(err, data) {
+AWS.config.credentials.refresh(function(err, data) {
    if (!err) {
       console.log('retrieved identity: ' + AWS.config.credentials.identityId);
       var params = {
          IdentityId: AWS.config.credentials.identityId
       };
-      cognitoIdentity.getCredentialsForIdentity(params, function(err, data) {
-         if (!err) {
-            //
-            // Update our latest AWS credentials; the MQTT client will use these
-            // during its next reconnect attempt.
-            //
-            mqttClient.updateWebSocketCredentials(data.Credentials.AccessKeyId,
-               data.Credentials.SecretKey,
-               data.Credentials.SessionToken);
-         } else {
-            console.log('error retrieving credentials: ' + err);
-            alert('error retrieving credentials: ' + err);
-         }
-      });
+
+
+      var iot = new AWS.Iot();
+
+      var policyParams = {
+        policyName: "BabelAudioUIPolicy",
+        target: AWS.config.credentials.identityId
+      };
+
+      iot.attachPolicy(policyParams, (err, data) => {
+        if (err) {
+          console.log("ERR - Attaching policy: "+err)
+          alert('error attaching policy: ' + err);
+        }
+        else {
+          console.log("Policy successfully attached: " + data);
+
+         const needsRefresh = AWS.config.credentials.needsRefresh();
+
+          let promise;
+          if (needsRefresh) {
+            promise = AWS.config.credentials.refreshPromise();
+            console.log('creds need refreshing')
+          } else {
+            promise = AWS.config.credentials.getPromise();
+            console.log('no need to refresh creds')
+          }
+
+          promise.then(() => {
+            const {accessKeyId, secretAccessKey, sessionToken} = AWS.config.credentials;
+            mqttClient.updateWebSocketCredentials(
+               accessKeyId,
+               secretAccessKey,
+               sessionToken);
+          }).catch(error => {
+            console.log(error)
+          });
+
+        }
+      })
+
    } else {
       console.log('error retrieving identity:' + err);
       alert('error retrieving identity: ' + err);

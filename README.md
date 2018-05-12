@@ -1,3 +1,27 @@
+# Marion's notes
+To run `MQTT Explorer` example under `examples/browser`:
+
+* Get a valid ID_TOKEN from your app.
+* Create and edit `aws-configuration.js`:
+```
+$ cd aws-iot-device-sdk-js/examples/browser/mqtt-explorer/
+$ cp aws-configuration.js.example aws-configuration.js
+```
+* Run:
+```bash
+$ cd aws-iot-device-sdk-js/
+$ npm install
+$ scripts/browserize.sh # if it does nothing, then run: npm install browserify -g
+$ open aws-iot-device-sdk-js/examples/browser/mqtt-explorer/index.html
+```
+
+Each time you edit a script, remeber to run:
+```
+$ npm run-script browserize examples/browser/mqtt-explorer/index.js
+```
+
+More in the [Browser Applications](#browser) section.
+
 # AWS IoT SDK for JavaScript
 The aws-iot-device-sdk.js package allows developers to write JavaScript 
 applications which access the AWS IoT Platform via [MQTT or MQTT over the Secure WebSocket Protocol](http://docs.aws.amazon.com/iot/latest/developerguide/protocols.html).  It can be used in Node.js environments as well as in browser applications.
